@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>Graph Paper with Canvas</title>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<div style="position: absolute; top: 0; left: 0; z-index: 9;">
+    <img src="..." width="82"/>
+</div>
+<script>
+    (function() {
+        const width = 750;
+        const height = 990;
+        const canvas = document.getElementById('canvas');
+        canvas.setAttribute('width', width);
+        canvas.setAttribute('height', height);
+        const N = 25;
+        const context = canvas.getContext('2d');
+
+        context.lineWidth = 0.4;
+        context.strokeStyle = 'rgba(34,102,254,0.58)';
+
+        var y = N/2;
+        while (y < height) {
+            context.beginPath();
+            context.moveTo(0, y);
+            context.lineTo(width, y);
+            context.stroke();
+            y += N;
+        }
+        var x = N/2;
+        while (x < width) {
+            context.beginPath();
+            context.moveTo(x, 0);
+            context.lineTo(x, height);
+            context.stroke();
+            x += N;
+        }
+    })();
+</script>
+</body>
+</html>

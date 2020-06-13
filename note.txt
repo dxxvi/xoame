@@ -1,0 +1,241 @@
+# h.sh #!/bin/bash
+
+sleep 19
+I=0
+while [ $I -lt 1 ]; do
+    [[ -x /home/tina/ha.sh ]] && /home/tina/ha.sh
+        X=$(date)
+        echo $X > /dev/shm/h-running.txt
+    sleep 82
+done
+
+# ha.sh #!/bin/bash
+
+TITLE=""
+
+function set_title {
+    TITLE=$(xprop -display :0.0 -id $(xprop -display :0.0 -root 32x '\t$0' _NET_ACTIVE_WINDOW | cut -f 2) _NET_WM_NAME | cut -d'=' -f2 | cut -d'"' -f2)
+}
+
+function kill_minecraft {
+    I=1
+    while [ $I -gt 0 ]; do
+        I=0
+        X=$(ps -ef | grep "Minecraft.jar" | grep --invert-match grep | tr -s ' ')
+        Y=$(echo $X | wc --bytes)
+        if [ $Y -gt 1 ]; then
+            Y=$(echo $X | cut -d' ' -f2)
+            kill -9 $Y
+            I=1
+        fi
+
+        X=$(ps -ef | grep "net.minecraft.client.main.Main" | grep --invert-match grep | tr -s ' ')
+        Y=$(echo $X | wc --bytes)
+        if [ $Y -gt 1 ]; then
+            Y=$(echo $X | cut -d' ' -f2)
+            kill -9 $Y
+            I=1
+        fi
+    done
+}
+
+function kill_youtube {
+    X=$(ps -ef | grep "/usr/lib/firefox/plugin-container" | grep --invert-match grep | tr -s ' ')
+    Y=$(echo $X | wc --bytes)
+    if [ $Y -gt 1 ]; then
+        Y=$(echo $X | cut -d' ' -f2)
+        kill -9 $Y
+        I=1
+    fi
+}
+
+function kill_mpv {
+    X=$(ps -ef | grep "mpv " | grep --invert-match grep | tr -s ' ')
+    Y=$(echo $X | wc --bytes)
+    if [ $Y -gt 1 ]; then
+        Y=$(echo $X | cut -d' ' -f2)
+        kill -9 $Y
+        I=1
+    fi
+}
+
+function minimize_everything {
+    for i in $( wmctrl -l | grep --invert-match tint2 | cut -d' ' -f1 ); do 
+        wmctrl -i -r $i -b toggle,hidden
+    done
+}
+
+
+U=$(date)
+echo $U > /dev/shm/ha-running.txt
+
+U=$(curl -Ss http://thegardentiny.com:8080/m/status | cut -d',' -f1)
+echo minecraft curl result $U >> /dev/shm/ha-running.txt
+if [[ $U == *"/m/block"* ]]; then
+    echo "killed because in block mode" >> /dev/shm/ha-running.txt
+    kill_minecraft
+elif [[ $U == *"/m/afk"* ]]; then
+    set_title
+    echo In afk mode, title is $TITLE >> /dev/shm/ha-running.txt
+    if [[ $TITLE == *"Minecraft"* ]]; then
+        ( DISPLAY=:0.0 xmessage -center "You have 3 mins to go to AFK then make the Minecraft window inactive or the system will crash." ) &
+        XMESSAGE_PID=$!
+        sleep 194
+        kill -9 $XMESSAGE_PID
+        set_title
+        if [[ $TITLE == *"Minecraft"* ]]; then
+            echo "killed because 3 mins is up" >> /dev/shm/ha-running.txt
+            kill_minecraft
+        fi
+    fi
+fi
+
+U=$(curl -Ss http://thegardentiny.com:8080/y/status | cut -d',' -f1)
+echo YouTube curl result $U >> /dev/shm/ha-running.txt
+if [[ $U == *"/y/block"* ]]; then
+    set_title
+    echo In youtube block mode, this is $TITLE >> /dev/shm/ha-running.txt
+        if [[ $TITLE == *"YouTube"* ]] || [[ $TITLE == *"http"*"mpv" ]] || [[ $TITLE == *"diep.io"* ]] ; then
+            ( DISPLAY=:0.0 xmessage -center "You have 15 seconds to go close YouTube or the system will crash." ) &
+            XMESSAGE_PID=$!
+            sleep 19
+            kill -9 $XMESSAGE_PID
+            set_title
+            if [[ $TITLE == *"YouTube"* ]]; then
+                echo "killed YouTube because 15secs is up" >> /dev/shm/ha-running.txt
+                kill_youtube
+            elif [[ $TITLE == *"http"*"mpv" ]]; then
+                        echo "killed mpv because 15secs is up" >> /dev/shm/ha-running.txt
+                        kill_mpv
+            fi
+        fi
+fi
+
+set_title
+if [[ $TITLE == "New Tab - Mozilla Firefox" ]]; then
+    echo This is a blank Firefox tab >> /dev/shm/ha-running.txt
+elif [[ $TITLE == *"Minecraft"* ]] || [[ $TITLE == *"Firefox"* ]] || [[ $TITLE == *"Chrome"* ]] ; then
+    echo "Minecraft or Firefox or Chrome is active" >> /dev/shm/ha-running.txt
+    U=$(date --iso-8601=seconds)
+    U=${U:0:19}
+    U=${U//:/-}
+    import -display :0.0 -silent -type optimize -window root /dev/shm/${U}.jpg > /dev/null 2>&1
+    scp /dev/shm/${U}.jpg ly@54.163.102.246:/home/ly/public_html/screenshots > /dev/null 2>&1
+
+    # if it's later than 11pm or ealier than 6am, minimize everything
+    CURRENT_HOUR=$( date +%H )
+    if [ $CURRENT_HOUR == "0"* ]; then
+        CURRENT_HOUR=$( echo 1$CURRENT_HOUR ) && CURRENT_HOUR=$( echo $CURRENT_HOUR | cut -d'0' -f2 )
+    fi
+    CURRENT_MINUTE=$( date +%M )
+    if [[ $CURRENT_HOUR -gt 22 ]] || [[ $CURRENT_HOUR -lt 6 ]] || [[ $CURRENT_MINUTE == "18" ]]  || [[ $CURRENT_MINUTE == "19" ]] || [[ $CURRENT_MINUTE == "38" ]] || [[ $CURRENT_MINUTE == "39" ]]; then
+        minimize_everything
+    fi
+fi
+sleep 4; rm -f /dev/shm/201*.jpg
+
+--------------------------------------------------------------------------------------------------------------------------------
+
+// ==UserScript==
+// @name         yahoo-finance
+// @namespace    http://tampermonkey.net/
+// @version      0.1
+// @description  try to take over the world!
+// @author       You
+// @match        https://finance.yahoo.com/quote/*?p=*
+// @run-at       document-body
+// @grant        GM_xmlhttpRequest
+// ==/UserScript==
+
+(function() {
+    'use strict';
+
+    let stopInterval = false;
+
+    function dqsa(selector, element) {
+        const d = element ? element : document;
+        return Array.prototype.slice.call(d.querySelectorAll(selector), 0);
+    }
+    function clean() {
+        const y = dqsa('#Main > div[data-reactid]:last-child:not(:first-child)');
+        if (y.length > 0) {
+            y[0].parentElement.removeChild(y[0]);
+        }
+    }
+
+    function askNextSymbol() {
+        GM_xmlhttpRequest({
+            method: 'GET',
+            url: 'http://localhost:8080/need',
+            onload: function(resp) {
+                location.href = 'https://finance.yahoo.com/quote/' + resp.response + '?p=' + resp.response;
+            }
+        });
+    }
+
+    setInterval(function() {
+        const i = location.href.indexOf('?p=');
+        if (i <= 0) return;
+        const symbol = location.href.substr(i + 3);
+        if (symbol.length > 5) {
+            console.log('What symbol is this? ' + symbol);
+            return;
+        }
+        const canvas = dqsa('div[id^="' + symbol + '-"] > canvas:first-child').find(e => true);
+        if (canvas === undefined) {
+            console.log('Unable to find the canvas');
+            return;
+        }
+        clean();
+
+        if (stopInterval) return;
+
+        stopInterval = true;
+        GM_xmlhttpRequest({
+            method: 'POST',
+            url: 'http://localhost:8080/symbol',
+            headers: {
+                "Content-Type": 'application/json'
+            },
+            data: JSON.stringify({
+                symbol: symbol,
+                picture: canvas.toDataURL()
+            }),
+            onload: function(response) {
+                console.log('Response from server for sending the 1-day graph for ' + symbol + ': ' + JSON.stringify(response));
+                if (response.response !== undefined) {  // the server doesn't have the graph for 5 days
+                    stopInterval = true;
+                    dqsa('#quote-header button').filter(b => b.textContent === '5d' && (typeof b.click === 'function')).forEach(b => {
+                        b.click();
+                        setTimeout(function() {
+                            const canv = dqsa('div[id^="' + symbol + '-"] > canvas:first-child').find(e => true);
+                            if (canv !== undefined) {
+                                GM_xmlhttpRequest({
+                                    method: 'POST',
+                                    url: 'http://localhost:8080/symbol',
+                                    headers: {
+                                        "Content-Type": 'application/json'
+                                    },
+                                    data: JSON.stringify({
+                                        symbol: symbol + 5,
+                                        picture: canv.toDataURL()
+                                    }),
+                                    onload: function(r) {
+                                        console.log('Response from server for sending the 5-day graph for ' + symbol + ': ' + JSON.stringify(r));
+                                        askNextSymbol();
+                                    }
+                                });
+                            }
+                        }, 1904);
+                    });
+                }
+                else {
+                    askNextSymbol();
+                }
+            },
+            ontimeout: function() {
+                stopInterval = false;
+            }
+        });
+    }, 4019);
+})();
